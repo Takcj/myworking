@@ -1,0 +1,32 @@
+{
+  "name": "smart-home",
+  "version": "1.0.0",
+  "description": "智能家居控制系统",
+  "main": "index.js",
+  "scripts": {
+    "dev": "concurrently \"npm run backend:dev\" \"npm run frontend:dev\"",
+    "backend:dev": "cd backend && mvn spring-boot:run",
+    "frontend:dev": "cd frontend/web && npm run serve",
+    "build": "npm run backend:build && npm run frontend:build",
+    "backend:build": "cd backend && mvn clean package",
+    "frontend:build": "cd frontend/web && npm run build",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "smart-home",
+    "iot",
+    "mqtt"
+  ],
+  "author": "Smart Home Team",
+  "license": "MIT",
+  "devDependencies": {
+    "concurrently": "^7.6.0"
+  },
+  "dependencies": {
+    "axios": "^1.2.2",
+    "vue": "^3.2.45",
+    "vue-router": "^4.1.6",
+    "vuex": "^4.1.0",
+    "element-plus": "^2.2.28"
+  }
+}
