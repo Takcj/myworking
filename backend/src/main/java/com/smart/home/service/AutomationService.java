@@ -1,12 +1,11 @@
 package com.smart.home.service;
 
 import com.smart.home.model.entity.AutomationRule;
-import com.smart.home.model.dto.AutomationRuleDTO;
 
 import java.util.List;
 
 /**
- * 自动化规则服务接口
+ * 自动化服务接口
  *
  * @author lingma
  */
@@ -18,7 +17,7 @@ public interface AutomationService {
      * @param userId 用户ID
      * @return 自动化规则列表
      */
-    List<AutomationRule> getRulesByUserId(Long userId);
+    List<AutomationRule> getAutomationRulesByUserId(Long userId);
 
     /**
      * 根据ID获取自动化规则
@@ -26,45 +25,46 @@ public interface AutomationService {
      * @param id 规则ID
      * @return 自动化规则实体
      */
-    AutomationRule getRuleById(Long id);
+    AutomationRule getAutomationRuleById(Long id);
 
     /**
-     * 创建自动化规则
+     * 添加自动化规则
      *
-     * @param ruleDTO 自动化规则DTO
+     * @param rule 自动化规则实体
      * @return 自动化规则实体
      */
-    AutomationRule createRule(AutomationRuleDTO ruleDTO);
+    AutomationRule addAutomationRule(AutomationRule rule);
 
     /**
      * 更新自动化规则
      *
-     * @param id 规则ID
-     * @param ruleDTO 自动化规则DTO
+     * @param rule 自动化规则实体
      * @return 自动化规则实体
      */
-    AutomationRule updateRule(Long id, AutomationRuleDTO ruleDTO);
+    AutomationRule updateAutomationRule(AutomationRule rule);
 
     /**
      * 删除自动化规则
      *
      * @param id 规则ID
      */
-    void deleteRule(Long id);
+    void deleteAutomationRule(Long id);
 
     /**
      * 启用自动化规则
      *
      * @param id 规则ID
+     * @return 更新后的规则
      */
-    void enableRule(Long id);
+    AutomationRule enableAutomationRule(Long id);
 
     /**
      * 禁用自动化规则
      *
      * @param id 规则ID
+     * @return 更新后的规则
      */
-    void disableRule(Long id);
+    AutomationRule disableAutomationRule(Long id);
 
     /**
      * 检查并触发自动化规则
@@ -75,4 +75,33 @@ public interface AutomationService {
      * @param status 设备状态
      */
     void checkAndTriggerRules(String userId, String deviceId, String deviceType, Object status);
+
+    /**
+     * 批量启用自动化规则
+     *
+     * @param ids 规则ID列表
+     */
+    void batchEnableRules(List<Long> ids);
+
+    /**
+     * 批量禁用自动化规则
+     *
+     * @param ids 规则ID列表
+     */
+    void batchDisableRules(List<Long> ids);
+
+    /**
+     * 检查设备是否支持自动化触发
+     *
+     * @param deviceType 设备类型
+     * @return 是否支持
+     */
+    boolean isDeviceSupportAutomation(String deviceType);
+    
+    /**
+     * 获取所有启用的定时规则
+     * 
+     * @return 定时规则列表
+     */
+    List<AutomationRule> getAllScheduledRules();
 }

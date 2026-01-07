@@ -1,23 +1,30 @@
 package com.smart.home.service.impl;
 
 import com.smart.home.common.Constants;
+import com.smart.home.config.DeviceStatusWebSocket;
 import com.smart.home.model.dto.DeviceDataDTO;
+import com.smart.home.model.entity.AutomationRule;
+import java.util.List;
 import com.smart.home.service.AutomationService;
 import com.smart.home.service.ConnectionService;
-import com.smart.home.service.DeviceService;
+import com.smart.home.service.DeviceStatusService;
 import com.smart.home.service.MqttService;
+import com.smart.home.service.UserDeviceOwnershipService;
 import com.smart.home.utils.MqttMessageParser;
-import com.smart.home.utils.ValidationUtils;
+import com.alibaba.fastjson.JSON;
 import org.eclipse.paho.client.mqttv3.*;
+import org.eclipse.paho.client.mqttv3.persist.MemoryPersistence;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * MQTT服务实现类
@@ -29,7 +36,7 @@ public class MqttServiceImpl implements MqttService {
 
     private static final Logger logger = LoggerFactory.getLogger(MqttServiceImpl.class);
 
-    @Value("${mqtt.broker}")
+    @Value("${mqtt.broker-url}")
     private String brokerUrl;
 
     @Value("${mqtt.username}")
@@ -41,13 +48,7 @@ public class MqttServiceImpl implements MqttService {
     @Value("${mqtt.client-id}")
     private String clientId;
 
-    @Value("${mqtt.default-qos:1}")
-    private int defaultQos;
-
     private MqttClient mqttClient;
-
-    @Autowired
-    private DeviceService deviceService;
 
     @Autowired
     private ConnectionService connectionService;
@@ -55,79 +56,215 @@ public class MqttServiceImpl implements MqttService {
     @Autowired
     private AutomationService automationService;
 
+    @Autowired
+    private DeviceStatusService deviceStatusService;
+
+    @Autowired
+    private UserDeviceOwnershipService userDeviceOwnershipService;
+
     /**
-     * 连接MQTT服务器
+     * 执行定时触发的自动化规则
      */
-    @PostConstruct
-    public void connect() {
+    @Scheduled(cron = "0 */1 * * * ?") // 每分钟执行一次
+    public void executeScheduledAutomationRules() {
         try {
-            // 创建MQTT客户端
-            mqttClient = new MqttClient(brokerUrl, clientId);
+            // 获取所有定时触发类型的启用规则
+            List<AutomationRule> scheduledRules = automationService.getAllScheduledRules();
             
-            // 设置连接选项
-            MqttConnectOptions options = new MqttConnectOptions();
-            options.setUserName(username);
-            options.setPassword(password.toCharArray());
-            options.setConnectionTimeout(30);
-            options.setKeepAliveInterval(60);
-            options.setCleanSession(true);
-            options.setAutomaticReconnect(true);
-
-            // 设置回调处理器
-            mqttClient.setCallback(new MqttCallbackExtended() {
-                @Override
-                public void connectComplete(boolean reconnect, String serverURI) {
-                    logger.info("MQTT连接完成，reconnect: {}, serverURI: {}", reconnect, serverURI);
-                    
-                    // 连接成功后订阅用户数据主题
-                    subscribe(String.format(Constants.MQTT.USER_DATA_TOPIC, "+"), defaultQos);
+            for (AutomationRule rule : scheduledRules) {
+                // 解析定时条件
+                String triggerCondition = rule.getTriggerCondition();
+                if (isScheduledConditionMet(triggerCondition)) {
+                    // 执行规则命令
+                    executeScheduledRuleCommand(rule);
                 }
-
-                @Override
-                public void connectionLost(Throwable cause) {
-                    logger.error("MQTT连接丢失: ", cause);
-                }
-
-                @Override
-                public void messageArrived(String topic, MqttMessage message) throws Exception {
-                    logger.debug("收到MQTT消息，主题: {}，内容: {}", topic, message.toString());
-                    
-                    // 解析用户ID
-                    String[] topicParts = topic.split("/");
-                    if (topicParts.length >= 3 && "device".equals(topicParts[2])) {
-                        String userId = topicParts[1];
-                        
-                        // 处理设备数据
-                        handleDeviceData(userId, message.toString());
-                    }
-                }
-
-                @Override
-                public void deliveryComplete(IMqttDeliveryToken token) {
-                    logger.debug("MQTT消息发送完成");
-                }
-            });
-
-            // 连接服务器
-            mqttClient.connect(options);
-            logger.info("MQTT连接成功，服务器: {}", brokerUrl);
-        } catch (MqttException e) {
-            logger.error("MQTT连接失败: ", e);
+            }
+        } catch (Exception e) {
+            logger.error("执行定时自动化规则失败", e);
+        }
+    }
+    
+    /**
+     * 检查定时条件是否满足
+     * 
+     * @param triggerCondition 触发条件
+     * @return 是否满足
+     */
+    private boolean isScheduledConditionMet(String triggerCondition) {
+        try {
+            // 解析JSON格式的触发条件
+            com.alibaba.fastjson.JSONObject condition = com.alibaba.fastjson.JSONObject.parseObject(triggerCondition);
+            String type = condition.getString("type");
+            
+            if ("time_range".equals(type)) {
+                // 时间范围类型条件
+                String startTime = condition.getString("start_time"); // HH:mm格式
+                String endTime = condition.getString("end_time");   // HH:mm格式
+                
+                return isTimeInRange(startTime, endTime);
+            } else if ("cron".equals(type)) {
+                // Cron表达式类型条件
+                String cronExpression = condition.getString("cron");
+                return isCronMatch(cronExpression);
+            }
+            
+            return false;
+        } catch (Exception e) {
+            logger.error("解析定时条件失败: {}", triggerCondition, e);
+            return false;
+        }
+    }
+    
+    /**
+     * 检查当前时间是否在指定时间范围内
+     * 
+     * @param startTime 开始时间(HH:mm)
+     * @param endTime 结束时间(HH:mm)
+     * @return 是否在范围内
+     */
+    private boolean isTimeInRange(String startTime, String endTime) {
+        try {
+            java.time.LocalTime now = java.time.LocalTime.now();
+            java.time.LocalTime start = java.time.LocalTime.parse(startTime);
+            java.time.LocalTime end = java.time.LocalTime.parse(endTime);
+            
+            if (start.isBefore(end)) {
+                // 正常的时间段，如 08:00-20:00
+                return !now.isBefore(start) && !now.isAfter(end);
+            } else {
+                // 跨天的时间段，如 22:00-06:00
+                return !now.isBefore(start) || !now.isAfter(end);
+            }
+        } catch (Exception e) {
+            logger.error("时间范围比较失败", e);
+            return false;
+        }
+    }
+    
+    /**
+     * 检查当前时间是否匹配Cron表达式
+     * 
+     * @param cronExpression Cron表达式
+     * @return 是否匹配
+     */
+    private boolean isCronMatch(String cronExpression) {
+        try {
+            // 使用Spring的CronSequenceGenerator
+            org.springframework.scheduling.support.CronSequenceGenerator generator = 
+                new org.springframework.scheduling.support.CronSequenceGenerator(cronExpression);
+            
+            java.util.Date now = new java.util.Date();
+            java.util.Date next = generator.next(now);
+            
+            // 如果下一次执行时间就是现在或过去，则认为匹配
+            return next.getTime() <= now.getTime() + 60000; // 允许1分钟误差
+        } catch (Exception e) {
+            logger.error("Cron表达式匹配失败: {}", cronExpression, e);
+            return false;
+        }
+    }
+    
+    /**
+     * 执行定时规则命令
+     * 
+     * @param rule 规则
+     */
+    private void executeScheduledRuleCommand(AutomationRule rule) {
+        try {
+            // 从数据库获取用户ID
+            String userId = rule.getUserId().toString();
+            
+            // 构建控制命令
+            DeviceDataDTO deviceDataDTO = new DeviceDataDTO();
+            deviceDataDTO.setUserId(userId);
+            
+            DeviceDataDTO.Data data = new DeviceDataDTO.Data();
+            data.setDeviceId(rule.getTargetDeviceId());
+            data.setDeviceType(rule.getTargetDeviceType());
+            
+            DeviceDataDTO.Command command = new DeviceDataDTO.Command();
+            command.setType(rule.getCommandType());
+            
+            // 解析命令参数
+            com.alibaba.fastjson.JSONObject commandParams = com.alibaba.fastjson.JSONObject.parseObject(rule.getCommandParameters());
+            command.setParameters(commandParams);
+            
+            data.setCommand(command);
+            deviceDataDTO.setData(data);
+            
+            // 发送控制命令
+            sendControlCommand(deviceDataDTO);
+        } catch (Exception e) {
+            logger.error("执行定时规则命令失败", e);
         }
     }
 
     /**
-     * 断开MQTT连接
+     * 初始化MQTT服务
+     */
+    @PostConstruct
+    public void init() throws MqttException {
+        // 创建MQTT客户端
+        mqttClient = new MqttClient(brokerUrl, clientId, new MemoryPersistence());
+        
+        // 设置连接选项
+        MqttConnectOptions options = new MqttConnectOptions();
+        options.setUserName(username);
+        options.setPassword(password.toCharArray());
+        options.setAutomaticReconnect(true);
+        options.setCleanSession(true);
+        options.setConnectionTimeout(30);
+        options.setKeepAliveInterval(60);
+
+        // 连接服务器
+        mqttClient.connect(options);
+        logger.info("MQTT连接成功，服务器: {}", brokerUrl);
+        
+        // 订阅设备数据上报主题
+        mqttClient.subscribe(Constants.MQTT.USER_DATA_TOPIC.replace("+", "#"), (topic, message) -> {
+            CompletableFuture.runAsync(() -> {
+                try {
+                    // 解析用户ID
+                    String[] topicParts = topic.split("/");
+                    if (topicParts.length >= 3 && "device".equals(topicParts[2])) {
+                        String userId = topicParts[1];
+                        DeviceDataDTO deviceDataDTO = MqttMessageParser.parseDeviceData(message.toString());
+                        if (deviceDataDTO != null) {
+                            deviceDataDTO.setUserId(userId);
+                            handleDeviceData(deviceDataDTO);
+                        }
+                    }
+                } catch (Exception e) {
+                    logger.error("处理设备数据消息时出错", e);
+                }
+            });
+        });
+
+        // 订阅控制命令响应主题
+        mqttClient.subscribe(Constants.MQTT.USER_CONTROL_RESPONSE_TOPIC.replace("+", "#"), (topic, message) -> {
+            CompletableFuture.runAsync(() -> {
+                try {
+                    String[] topicParts = topic.split("/");
+                    if (topicParts.length >= 3) {
+                        String userId = topicParts[1];
+                        logger.debug("收到控制命令响应，用户ID: {}, 内容: {}", userId, message.toString());
+                    }
+                } catch (Exception e) {
+                    logger.error("处理控制命令响应时出错", e);
+                }
+            });
+        });
+    }
+
+    /**
+     * 销毁MQTT服务
      */
     @PreDestroy
-    public void disconnect() {
-        try {
-            if (mqttClient != null && mqttClient.isConnected()) {
-                mqttClient.disconnect();
-                logger.info("MQTT连接已断开");
-            }
-        } catch (MqttException e) {
-            logger.error("断开MQTT连接时出错: ", e);
+    public void destroy() throws MqttException {
+        if (mqttClient != null && mqttClient.isConnected()) {
+            mqttClient.disconnect();
+            mqttClient.close();
+            logger.info("MQTT连接已断开");
         }
     }
 
@@ -182,30 +319,27 @@ public class MqttServiceImpl implements MqttService {
      * @param userId  用户ID
      * @param message 消息内容
      */
-    @Override
-    public void handleDeviceData(String userId, String message) {
+    /**
+     * 处理设备数据上报
+     *
+     * @param deviceDataDTO 设备数据DTO
+     */
+    private void handleDeviceData(DeviceDataDTO deviceDataDTO) {
         try {
-            // 验证消息格式
-            if (!MqttMessageParser.validateMessageFormat(message)) {
-                logger.error("消息格式无效: {}", message);
+            String userId = deviceDataDTO.getUserId();
+            String deviceId = deviceDataDTO.getData().getDeviceId();
+
+            // 验证用户是否对设备有访问权限
+            if (userDeviceOwnershipService.checkOwnership(Long.parseLong(userId), deviceId) == null) {
+                logger.warn("用户 {} 对设备 {} 没有访问权限", userId, deviceId);
                 return;
             }
-            
-            // 解析消息
-            DeviceDataDTO deviceDataDTO = MqttMessageParser.parseDeviceData(message);
-            if (deviceDataDTO == null) {
-                logger.error("消息解析失败: {}", message);
-                return;
-            }
-            
+
             // 根据消息类型进行相应处理
             String messageType = deviceDataDTO.getMessageType();
             switch (messageType) {
                 case Constants.MessageType.DEVICE_DATA:
                     handleDeviceDataMessage(deviceDataDTO);
-                    break;
-                case Constants.MessageType.CONTROL_COMMAND:
-                    handleControlCommandMessage(deviceDataDTO);
                     break;
                 case Constants.MessageType.CONNECTION:
                     handleConnectionMessage(deviceDataDTO);
@@ -213,12 +347,16 @@ public class MqttServiceImpl implements MqttService {
                 case Constants.MessageType.HEARTBEAT:
                     handleHeartbeatMessage(deviceDataDTO);
                     break;
+                case Constants.MessageType.CONTROL_COMMAND:
+                    // 控制命令由设备发出响应，通常不需要在这里处理
+                    logger.debug("收到控制命令响应，设备ID: {}", deviceId);
+                    break;
                 default:
                     logger.warn("未知的消息类型: {}", messageType);
                     break;
             }
         } catch (Exception e) {
-            logger.error("处理设备数据时出错，用户ID: {}，消息: {}", userId, message, e);
+            logger.error("处理设备数据时出错", e);
         }
     }
 
@@ -237,7 +375,11 @@ public class MqttServiceImpl implements MqttService {
             // TODO: 实现设备验证逻辑
             
             // 更新设备状态
-            // TODO: 实现更新设备状态的逻辑
+            String statusData = JSON.toJSONString(status);
+            deviceStatusService.updateDeviceStatus(deviceId, statusData);
+
+            // 推送设备状态更新到WebSocket客户端
+            DeviceStatusWebSocket.sendDeviceStatusUpdate(deviceId, deviceType, status);
             
             // 触发自动化规则
             automationService.checkAndTriggerRules(
@@ -278,6 +420,12 @@ public class MqttServiceImpl implements MqttService {
             
             logger.info("处理连接消息，用户ID: {}，设备ID: {}", userId, deviceId);
             
+            // 验证用户是否对设备有访问权限
+            if (userDeviceOwnershipService.checkOwnership(Long.parseLong(userId), deviceId) == null) {
+                logger.warn("用户 {} 对设备 {} 没有连接上报权限", userId, deviceId);
+                return;
+            }
+
             // 记录连接状态为在线
             connectionService.setDeviceOnline(userId, deviceId);
             
@@ -297,6 +445,12 @@ public class MqttServiceImpl implements MqttService {
             
             logger.info("处理心跳消息，用户ID: {}，设备ID: {}", userId, deviceId);
             
+            // 验证用户是否对设备有访问权限
+            if (userDeviceOwnershipService.checkOwnership(Long.parseLong(userId), deviceId) == null) {
+                logger.warn("用户 {} 对设备 {} 没有心跳上报权限", userId, deviceId);
+                return;
+            }
+
             // 更新心跳时间
             connectionService.updateHeartbeat(deviceId);
             
@@ -318,24 +472,38 @@ public class MqttServiceImpl implements MqttService {
     public void sendControlCommand(DeviceDataDTO deviceDataDTO) {
         try {
             String userId = deviceDataDTO.getUserId();
+            String area = deviceDataDTO.getData().getArea();
+            String deviceType = deviceDataDTO.getData().getDeviceType();
             String deviceId = deviceDataDTO.getData().getDeviceId();
-            
+            DeviceDataDTO.Command command = deviceDataDTO.getData().getCommand();
+
             // 检查设备是否在线
             if (!connectionService.isDeviceOnline(deviceId)) {
-                logger.warn("设备 {} 不在线，控制命令可能无法送达", deviceId);
+                logger.warn("设备 {} 不在线，无法发送控制命令", deviceId);
+                return;
             }
+
+            // 验证用户是否对设备有控制权限
+            if (userDeviceOwnershipService.checkOwnership(Long.parseLong(userId), deviceId) == null) {
+                logger.warn("用户 {} 对设备 {} 没有控制权限", userId, deviceId);
+                return;
+            }
+
+            // 构造控制命令消息
+            Map<String, Object> commandMap = Map.of(
+                "type", command.getType(),
+                "parameters", command.getParameters()
+            );
             
-            // 构建控制命令主题
+            String message = MqttMessageParser.buildControlCommand(userId, area, deviceType, deviceId, commandMap);
+
+            // 发送控制命令
             String topic = String.format(Constants.MQTT.USER_CONTROL_TOPIC, userId);
-            
-            // 构建控制命令消息
-            String message = buildControlCommandMessage(deviceDataDTO);
-            
-            // 发布消息
-            publish(topic, message, defaultQos);
-            
-            logger.info("发送控制命令到设备，用户ID: {}，设备ID: {}，命令: {}", 
-                      userId, deviceId, deviceDataDTO.getData().getCommand());
+            MqttMessage mqttMessage = new MqttMessage(message.getBytes());
+            mqttMessage.setQos(1);
+            mqttClient.publish(topic, mqttMessage);
+
+            logger.info("控制命令发送成功: 用户ID={}, 设备ID={}, 命令={}", userId, deviceId, command);
         } catch (Exception e) {
             logger.error("发送控制命令失败", e);
         }
@@ -350,13 +518,13 @@ public class MqttServiceImpl implements MqttService {
     @Override
     public void sendBatchControlCommand(String userId, String message) {
         try {
-            // 构建控制命令主题
-            String topic = String.format(Constants.MQTT.USER_CONTROL_TOPIC, userId);
-            
-            // 发布消息
-            publish(topic, message, defaultQos);
-            
-            logger.info("发送批量控制命令，用户ID: {}，命令: {}", userId, message);
+            // 发送批量控制命令
+            String topic = String.format(Constants.MQTT.USER_BATCH_CONTROL_TOPIC, userId);
+            MqttMessage mqttMessage = new MqttMessage(message.getBytes());
+            mqttMessage.setQos(1);
+            mqttClient.publish(topic, mqttMessage);
+
+            logger.info("批量控制命令发送成功: 用户ID={}, 命令={}", userId, message);
         } catch (Exception e) {
             logger.error("发送批量控制命令失败，用户ID: {}", userId, e);
         }
@@ -370,19 +538,20 @@ public class MqttServiceImpl implements MqttService {
      */
     @Override
     public void sendHeartbeatResponse(String userId, String deviceId) {
-        // 在实际实现中，可以发送一个心跳响应消息给设备
-        logger.debug("发送心跳响应，用户ID: {}，设备ID: {}", userId, deviceId);
-    }
+        try {
+            // 构造心跳响应消息
+            String message = String.format("{\"user_id\":\"%s\",\"device_id\":\"%s\",\"timestamp\":%d,\"message_type\":\"heartbeat_response\"}", 
+                userId, deviceId, System.currentTimeMillis());
 
-    /**
-     * 构建控制命令消息
-     *
-     * @param deviceDataDTO 设备数据DTO
-     * @return 控制命令消息
-     */
-    private String buildControlCommandMessage(DeviceDataDTO deviceDataDTO) {
-        // 实际实现中需要将DeviceDataDTO转换为JSON格式的控制命令
-        // 这里暂时返回一个简单的JSON字符串
-        return "{ \"command\": \"control_command\", \"data\": " + deviceDataDTO.toString() + " }";
+            // 发送心跳响应
+            String topic = String.format(Constants.MQTT.USER_HEARTBEAT_RESPONSE_TOPIC, userId, deviceId);
+            MqttMessage mqttMessage = new MqttMessage(message.getBytes());
+            mqttMessage.setQos(0);
+            mqttClient.publish(topic, mqttMessage);
+
+            logger.debug("心跳响应发送成功: 用户ID={}, 设备ID={}", userId, deviceId);
+        } catch (Exception e) {
+            logger.error("发送心跳响应失败", e);
+        }
     }
 }

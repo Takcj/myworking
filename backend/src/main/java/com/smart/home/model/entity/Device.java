@@ -3,6 +3,7 @@ package com.smart.home.model.entity;
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
+import com.fasterxml.jackson.annotation.JsonFormat;
 import lombok.Data;
 
 import java.time.LocalDateTime;
@@ -47,19 +48,17 @@ public class Device {
      */
     private String deviceName;
 
-    /**
-     * 状态名称（用于前端显示框架）
-     */
-    private String statusName;
 
     /**
      * 创建时间
      */
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss", timezone = "GMT+8")
     private LocalDateTime createdAt;
 
     /**
      * 更新时间
      */
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss", timezone = "GMT+8")
     private LocalDateTime updatedAt;
 
     /**
@@ -67,4 +66,10 @@ public class Device {
      * 用于表示设备当前是否在线
      */
     private Boolean onlineStatus;
+
+    /**
+     * 用户对设备的权限等级（仅在查询时使用）
+     * 如：owner(拥有者), admin(管理员), member(成员), guest(访客)等
+     */
+    private String permissionLevel;
 }

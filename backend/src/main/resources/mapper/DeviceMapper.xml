@@ -42,4 +42,15 @@
         FROM devices
         WHERE user_id = #{userId} AND area_id = #{areaId}
     </select>
+
+    <!-- 根据设备ID列表查询设备列表 -->
+    <select id="selectByDeviceIds" parameterType="java.util.List" resultMap="BaseResultMap">
+        SELECT
+        <include refid="BaseColumns" />
+        FROM devices
+        WHERE device_id IN
+        <foreach collection="list" item="deviceId" open="(" separator="," close=")">
+            #{deviceId}
+        </foreach>
+    </select>
 </mapper>

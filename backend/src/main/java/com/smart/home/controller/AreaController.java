@@ -14,7 +14,7 @@ import java.util.List;
  * @author lingma
  */
 @RestController
-@RequestMapping("/api/areas")
+@RequestMapping("/api/v1/areas")
 public class AreaController {
 
     @Autowired
@@ -29,7 +29,7 @@ public class AreaController {
     @GetMapping
     public Result<List<Area>> getUserAreas(@RequestParam Long userId) {
         List<Area> areas = areaService.getAreasByUserId(userId);
-        return Result.success(areas);
+        return Result.success("获取区域列表成功", areas);
     }
 
     /**
@@ -42,21 +42,21 @@ public class AreaController {
     public Result<Area> getArea(@PathVariable Long id) {
         Area area = areaService.getAreaById(id);
         if (area != null) {
-            return Result.success(area);
+            return Result.success("获取区域信息成功", area);
         }
         return Result.error("区域不存在");
     }
 
     /**
-     * 创建区域
+     * 添加区域
      *
      * @param area 区域信息
-     * @return 创建结果
+     * @return 添加结果
      */
     @PostMapping
-    public Result<Area> createArea(@RequestBody Area area) {
+    public Result<Area> addArea(@RequestBody Area area) {
         Area newArea = areaService.addArea(area);
-        return Result.success("区域创建成功", newArea);
+        return Result.success("区域添加成功", newArea);
     }
 
     /**

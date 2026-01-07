@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.smart.home.mapper.AutomationRuleMapper">
-    <!-- 自动化规则表字段映射 -->
+
+    <!-- 结果映射 -->
     <resultMap id="BaseResultMap" type="com.smart.home.model.entity.AutomationRule">
         <id column="id" property="id" />
         <result column="user_id" property="userId" />
@@ -12,29 +13,40 @@
         <result column="target_device_type" property="targetDeviceType" />
         <result column="command_type" property="commandType" />
         <result column="command_parameters" property="commandParameters" />
-        <result column="is_enabled" property="enabled" />
+        <result column="is_enabled" property="isEnabled" />
         <result column="created_at" property="createdAt" />
         <result column="updated_at" property="updatedAt" />
     </resultMap>
 
-    <!-- 基础字段列表 -->
-    <sql id="BaseColumns">
-        id, user_id, rule_name, trigger_type, trigger_condition, target_device_id, target_device_type, 
-        command_type, command_parameters, is_enabled, created_at, updated_at
+    <!-- 基础字段 -->
+    <sql id="Base_Column_List">
+        id, user_id, rule_name, trigger_type, trigger_condition, target_device_id, target_device_type, command_type, command_parameters, is_enabled, created_at, updated_at
     </sql>
 
-    <!-- 根据用户ID查询启用的规则列表 -->
-    <select id="selectEnabledRulesByUserId" parameterType="java.lang.Long" resultMap="BaseResultMap">
+    <!-- 根据用户ID获取自动化规则列表 -->
+    <select id="selectByUserId" resultMap="BaseResultMap">
         SELECT
-        <include refid="BaseColumns" />
+        <include refid="Base_Column_List" />
         FROM automation_rules
-        WHERE user_id = #{userId} AND is_enabled = 1
+        WHERE user_id = #{userId}
+        ORDER BY created_at DESC
     </select>
 
-    <!-- 根据ID更新规则启用状态 -->
-    <update id="updateRuleStatus" parameterType="map">
-        UPDATE automation_rules
-        SET is_enabled = #{status}, updated_at = NOW()
-        WHERE id = #{id}
-    </update>
+    <!-- 根据用户ID获取启用的自动化规则列表 -->
+    <select id="selectEnabledByUserId" resultMap="BaseResultMap">
+        SELECT
+        <include refid="Base_Column_List" />
+        FROM automation_rules
+        WHERE user_id = #{userId} AND is_enabled = 1
+        ORDER BY created_at DESC
+    </select>
+
+    <!-- 查询所有启用的定时规则 -->
+    <select id="selectScheduledRules" resultMap="BaseResultMap">
+        SELECT
+        <include refid="Base_Column_List" />
+        FROM automation_rules
+        WHERE trigger_type = 'time_based' AND is_enabled = 1
+    </select>
+
 </mapper>

@@ -1,16 +1,16 @@
 package com.smart.home.common;
 
-import lombok.Data;
+import com.fasterxml.jackson.annotation.JsonFormat;
 
 import java.io.Serializable;
+import java.time.LocalDateTime;
 
 /**
- * 统一返回结果类
+ * 统一响应结果类
  *
+ * @param <T> 响应数据类型
  * @author lingma
- * @param <T> 数据类型
  */
-@Data
 public class Result<T> implements Serializable {
 
     private static final long serialVersionUID = 1L;
@@ -30,31 +30,39 @@ public class Result<T> implements Serializable {
      */
     private T data;
 
+    /**
+     * 时间戳
+     */
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss", timezone = "GMT+8")
+    private LocalDateTime timestamp;
+
     public Result() {
+        this.timestamp = LocalDateTime.now();
     }
 
     public Result(Integer code, String message, T data) {
+        this();
         this.code = code;
         this.message = message;
         this.data = data;
     }
 
     /**
-     * 成功返回
+     * 成功响应
      *
-     * @param data 数据
+     * @param data 响应数据
      * @param <T>  数据类型
      * @return Result
      */
     public static <T> Result<T> success(T data) {
-        return new Result<>(200, Constants.SUCCESS, data);
+        return new Result<>(200, "Success", data);
     }
 
     /**
-     * 成功返回
+     * 成功响应
      *
      * @param message 消息
-     * @param data    数据
+     * @param data    响应数据
      * @param <T>     数据类型
      * @return Result
      */
@@ -63,9 +71,9 @@ public class Result<T> implements Serializable {
     }
 
     /**
-     * 失败返回
+     * 错误响应
      *
-     * @param message 消息
+     * @param message 错误消息
      * @param <T>     数据类型
      * @return Result
      */
@@ -74,10 +82,10 @@ public class Result<T> implements Serializable {
     }
 
     /**
-     * 失败返回
+     * 错误响应
      *
      * @param code    状态码
-     * @param message 消息
+     * @param message 错误消息
      * @param <T>     数据类型
      * @return Result
      */
@@ -85,16 +93,36 @@ public class Result<T> implements Serializable {
         return new Result<>(code, message, null);
     }
 
-    /**
-     * 自定义返回
-     *
-     * @param code    状态码
-     * @param message 消息
-     * @param data    数据
-     * @param <T>     数据类型
-     * @return Result
-     */
-    public static <T> Result<T> of(Integer code, String message, T data) {
-        return new Result<>(code, message, data);
+    // getter和setter方法
+    public Integer getCode() {
+        return code;
+    }
+
+    public void setCode(Integer code) {
+        this.code = code;
+    }
+
+    public String getMessage() {
+        return message;
+    }
+
+    public void setMessage(String message) {
+        this.message = message;
+    }
+
+    public T getData() {
+        return data;
+    }
+
+    public void setData(T data) {
+        this.data = data;
+    }
+
+    public LocalDateTime getTimestamp() {
+        return timestamp;
+    }
+
+    public void setTimestamp(LocalDateTime timestamp) {
+        this.timestamp = timestamp;
     }
 }

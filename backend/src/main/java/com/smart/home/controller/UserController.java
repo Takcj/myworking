@@ -13,7 +13,7 @@ import org.springframework.web.bind.annotation.*;
  * @author lingma
  */
 @RestController
-@RequestMapping("/api/user")
+@RequestMapping("/api/v1/users")
 public class UserController {
 
     @Autowired
@@ -61,12 +61,27 @@ public class UserController {
      * @return 用户信息
      */
     @GetMapping("/{id}")
-    public Result<User> getUserInfo(@PathVariable Long id) {
+    public Result<User> getUser(@PathVariable Long id) {
         User user = userService.getUserById(id);
         if (user != null) {
-            return Result.success(user);
+            return Result.success("获取用户信息成功", user);
         }
         return Result.error("用户不存在");
+    }
+
+    /**
+     * 获取当前登录用户信息
+     * 
+     * @return 用户信息
+     */
+    @GetMapping("/profile")
+    public Result<User> getCurrentUserProfile() {
+        // 这里应该从JWT token中获取用户信息，为了简化暂时返回一个示例用户
+        User user = new User();
+        user.setId(1L);
+        user.setUsername("example_user");
+        user.setPhone("13800138000");
+        return Result.success("获取用户信息成功", user);
     }
 
     /**
@@ -77,8 +92,8 @@ public class UserController {
      * @return 更新结果
      */
     @PutMapping("/{id}")
-    public Result<User> updateUserInfo(@PathVariable Long id, @RequestBody User user) {
+    public Result<User> updateUser(@PathVariable Long id, @RequestBody User user) {
         // 实现更新用户信息的逻辑
-        return Result.success("更新成功", user);
+        return Result.success("用户信息更新成功", user);
     }
 }

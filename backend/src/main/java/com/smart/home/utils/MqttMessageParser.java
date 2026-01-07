@@ -1,23 +1,24 @@
 package com.smart.home.utils;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.JSONObject;
 import com.smart.home.common.Constants;
 import com.smart.home.model.dto.DeviceDataDTO;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.HashMap;
+import java.util.Map;
+
 /**
  * MQTT消息解析器
+ * 解析来自下位机设备的MQTT消息
  *
  * @author lingma
  */
 public class MqttMessageParser {
     
     private static final Logger logger = LoggerFactory.getLogger(MqttMessageParser.class);
-    
-    private static final ObjectMapper objectMapper = new ObjectMapper();
     
     /**
      * 解析设备数据消息
@@ -27,155 +28,90 @@ public class MqttMessageParser {
      */
     public static DeviceDataDTO parseDeviceData(String message) {
         try {
-            JsonNode rootNode = objectMapper.readTree(message);
+            JSONObject json = JSON.parseObject(message);
+            
+            // 验证消息结构是否符合四层结构：用户ID → 时间戳 → 消息类型 → 数据体
+            if (!isValidMessageStructure(json)) {
+                throw new IllegalArgumentException("消息格式不符合规范");
+            }
             
             DeviceDataDTO dto = new DeviceDataDTO();
-            dto.setUserId(rootNode.get("user_id").asText());
-            dto.setTimestamp(rootNode.get("timestamp").asLong());
-            dto.setMessageType(rootNode.get("message_type").asText());
+            dto.setUserId(json.getString("user_id"));
+            dto.setTimestamp(json.getLong("timestamp"));
+            dto.setMessageType(json.getString("message_type"));
             
             // 解析数据体
-            if (rootNode.has("data") && rootNode.get("data").isObject()) {
-                JsonNode dataNode = rootNode.get("data");
+            JSONObject dataObj = json.getJSONObject("data");
+            if (dataObj != null) {
                 DeviceDataDTO.DataBody dataBody = new DeviceDataDTO.DataBody();
+                dataBody.setArea(dataObj.getString("area"));
+                dataBody.setDeviceType(dataObj.getString("device_type"));
+                dataBody.setDeviceId(dataObj.getString("device_id"));
                 
-                // 根据消息类型解析数据体
-                String messageType = rootNode.get("message_type").asText();
-                switch (messageType) {
-                    case Constants.MessageType.DEVICE_DATA:
-                        parseDeviceDataBody(dataNode, dataBody);
-                        break;
-                    case Constants.MessageType.CONTROL_COMMAND:
-                        parseControlCommandDataBody(dataNode, dataBody);
-                        break;
-                    case Constants.MessageType.CONNECTION:
-                        parseConnectionDataBody(dataNode, dataBody);
-                        break;
-                    case Constants.MessageType.HEARTBEAT:
-                        parseHeartbeatDataBody(dataNode, dataBody);
-                        break;
-                    default:
-                        logger.warn("未知的消息类型: {}", messageType);
-                        break;
+                // 解析状态数据，将其作为一个JSON对象存储
+                if (dataObj.containsKey("status")) {
+                    dataBody.setStatus(dataObj.getJSONObject("status"));
+                }
+                
+                // 解析命令数据
+                if (dataObj.containsKey("command")) {
+                    dataBody.setCommand(dataObj.getObject("command", DeviceDataDTO.Command.class));
+                }
+                
+                // 其他通用字段
+                if (dataObj.containsKey("timestamp")) {
+                    dataBody.setTimestamp(dataObj.getLong("timestamp"));
                 }
                 
                 dto.setData(dataBody);
             }
             
             return dto;
-        } catch (JsonProcessingException e) {
-            logger.error("解析MQTT消息失败: {}", message, e);
-            return null;
         } catch (Exception e) {
-            logger.error("解析MQTT消息时发生异常: {}", message, e);
-            return null;
+            logger.error("解析设备数据消息失败: {}", message, e);
+            throw new RuntimeException("解析设备数据消息失败: " + e.getMessage(), e);
         }
     }
     
-    /**
-     * 解析设备数据体
-     */
-    private static void parseDeviceDataBody(JsonNode dataNode, DeviceDataDTO.DataBody dataBody) {
-        if (dataNode.has("area")) {
-            dataBody.setArea(dataNode.get("area").asText());
-        }
-        
-        if (dataNode.has("device_type")) {
-            dataBody.setDeviceType(dataNode.get("device_type").asText());
-        }
-        
-        if (dataNode.has("device_id")) {
-            dataBody.setDeviceId(dataNode.get("device_id").asText());
-        }
-        
-        if (dataNode.has("status")) {
-            // 将status节点转换为Map
-            try {
-                dataBody.setStatus(objectMapper.convertValue(dataNode.get("status"), java.util.Map.class));
-            } catch (Exception e) {
-                logger.error("解析设备状态失败", e);
-            }
-        }
-        
-        if (dataNode.has("timestamp")) {
-            dataBody.setTimestamp(dataNode.get("timestamp").asLong());
-        }
-    }
     
     /**
-     * 解析控制命令数据体
+     * 验证消息结构是否符合规范
+     *
+     * @param json JSON对象
+     * @return 是否符合规范
      */
-    private static void parseControlCommandDataBody(JsonNode dataNode, DeviceDataDTO.DataBody dataBody) {
-        if (dataNode.has("area")) {
-            dataBody.setArea(dataNode.get("area").asText());
-        }
-        
-        if (dataNode.has("device_type")) {
-            dataBody.setDeviceType(dataNode.get("device_type").asText());
-        }
-        
-        if (dataNode.has("device_id")) {
-            dataBody.setDeviceId(dataNode.get("device_id").asText());
-        }
-        
-        if (dataNode.has("command")) {
-            JsonNode commandNode = dataNode.get("command");
-            DeviceDataDTO.Command command = new DeviceDataDTO.Command();
-            
-            if (commandNode.has("type")) {
-                command.setType(commandNode.get("type").asText());
-            }
-            
-            if (commandNode.has("parameters")) {
-                try {
-                    command.setParameters(objectMapper.convertValue(commandNode.get("parameters"), java.util.Map.class));
-                } catch (Exception e) {
-                    logger.error("解析命令参数失败", e);
-                }
-            }
-            
-            dataBody.setCommand(command);
-        }
+    private static boolean isValidMessageStructure(JSONObject json) {
+        // 检查必需字段
+        return json.containsKey("user_id") &&
+               json.containsKey("timestamp") &&
+               json.containsKey("message_type") &&
+               json.containsKey("data");
     }
-    
+
     /**
-     * 解析连接数据体
+     * 构造控制命令消息
+     *
+     * @param userId     用户ID
+     * @param area       区域
+     * @param deviceType 设备类型
+     * @param deviceId   设备ID
+     * @param command    命令
+     * @return 消息字符串
      */
-    private static void parseConnectionDataBody(JsonNode dataNode, DeviceDataDTO.DataBody dataBody) {
-        // 连接数据的特殊处理
-        if (dataNode.has("device_id")) {
-            dataBody.setDeviceId(dataNode.get("device_id").asText());
-        }
+    public static String buildControlCommand(String userId, String area, String deviceType, String deviceId, Map<String, Object> command) {
+        Map<String, Object> message = new HashMap<>();
+        message.put("user_id", userId);
+        message.put("timestamp", System.currentTimeMillis());
+        message.put("message_type", Constants.MESSAGE_TYPE_CONTROL_COMMAND);
         
-        // 其他连接相关信息可以按需解析
-    }
-    
-    /**
-     * 解析心跳数据体
-     */
-    private static void parseHeartbeatDataBody(JsonNode dataNode, DeviceDataDTO.DataBody dataBody) {
-        if (dataNode.has("device_id")) {
-            dataBody.setDeviceId(dataNode.get("device_id").asText());
-        }
+        Map<String, Object> data = new HashMap<>();
+        data.put("area", area);
+        data.put("device_type", deviceType);
+        data.put("device_id", deviceId);
+        data.put("command", command);
         
-        // 其他心跳相关信息可以按需解析
-    }
-    
-    /**
-     * 验证消息格式
-     */
-    public static boolean validateMessageFormat(String message) {
-        try {
-            JsonNode rootNode = objectMapper.readTree(message);
-            
-            // 验证必需字段
-            return rootNode.has("user_id") && 
-                   rootNode.has("timestamp") && 
-                   rootNode.has("message_type") && 
-                   rootNode.has("data");
-        } catch (Exception e) {
-            logger.error("验证消息格式失败: {}", message, e);
-            return false;
-        }
+        message.put("data", data);
+        
+        return JSON.toJSONString(message);
     }
 }

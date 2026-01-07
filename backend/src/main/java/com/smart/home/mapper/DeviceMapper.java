@@ -14,16 +14,9 @@ import java.util.List;
  */
 @Mapper
 public interface DeviceMapper extends BaseMapper<Device> {
-    /**
-     * 根据用户ID查询设备列表
-     *
-     * @param userId 用户ID
-     * @return 设备列表
-     */
-    List<Device> selectByUserId(@Param("userId") Long userId);
 
     /**
-     * 根据设备ID查询设备
+     * 根据设备ID获取设备
      *
      * @param deviceId 设备ID
      * @return 设备实体
@@ -31,10 +24,27 @@ public interface DeviceMapper extends BaseMapper<Device> {
     Device selectByDeviceId(@Param("deviceId") String deviceId);
 
     /**
-     * 根据用户ID和区域ID查询设备列表
+     * 根据用户ID获取设备列表
      *
-     * @param params 包含userId和areaId的参数
+     * @param userId 用户ID
+     * @return 设备列表
+     */
+    List<Device> selectByUserId(@Param("userId") Long userId);
+
+    /**
+     * 根据用户ID和区域ID获取设备列表
+     *
+     * @param userId 用户ID
+     * @param areaId 区域ID
      * @return 设备列表
      */
     List<Device> selectByUserIdAndAreaId(@Param("userId") Long userId, @Param("areaId") Long areaId);
+
+    /**
+     * 根据设备ID列表获取设备列表
+     *
+     * @param deviceIds 设备ID列表
+     * @return 设备列表
+     */
+    List<Device> selectByDeviceIds(@Param("deviceIds") List<String> deviceIds);
 }

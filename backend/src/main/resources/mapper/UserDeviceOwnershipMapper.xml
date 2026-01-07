@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.smart.home.mapper.UserDeviceOwnershipMapper">
+
+    <!-- 结果映射 -->
+    <resultMap id="BaseResultMap" type="com.smart.home.model.entity.UserDeviceOwnership">
+        <id column="id" property="id" />
+        <result column="user_id" property="userId" />
+        <result column="device_id" property="deviceId" />
+        <result column="is_owner" property="isOwner" />
+        <result column="created_at" property="createdAt" />
+        <result column="updated_at" property="updatedAt" />
+    </resultMap>
+
+    <!-- 基础字段 -->
+    <sql id="Base_Column_List">
+        id, user_id, device_id, is_owner, created_at, updated_at
+    </sql>
+
+    <!-- 根据用户ID获取用户有权限访问的设备ID列表 -->
+    <select id="selectDeviceIdsByUserId" resultType="java.lang.String">
+        SELECT DISTINCT device_id
+        FROM user_device_ownership
+        WHERE user_id = #{userId}
+    </select>
+
+    <!-- 根据设备ID获取有权限访问的用户ID列表 -->
+    <select id="selectUserIdsByDeviceId" resultType="java.lang.Long">
+        SELECT DISTINCT user_id
+        FROM user_device_ownership
+        WHERE device_id = #{deviceId}
+    </select>
+
+    <!-- 检查用户是否对设备有访问权限 -->
+    <select id="selectByUserIdAndDeviceId" resultMap="BaseResultMap">
+        SELECT
+        <include refid="Base_Column_List" />
+        FROM user_device_ownership
+        WHERE user_id = #{userId} AND device_id = #{deviceId}
+        LIMIT 1
+    </select>
+
+    <!-- 获取设备所有者ID -->
+    <select id="selectOwnerIdByDeviceId" resultType="java.lang.Long">
+        SELECT user_id
+        FROM user_device_ownership
+        WHERE device_id = #{deviceId} AND is_owner = 1
+        LIMIT 1
+    </select>
+
+    <!-- 获取用户的设备归属关系列表 -->
+    <select id="selectByUserId" resultMap="BaseResultMap">
+        SELECT
+        <include refid="Base_Column_List" />
+        FROM user_device_ownership
+        WHERE user_id = #{userId}
+    </select>
+
+</mapper>

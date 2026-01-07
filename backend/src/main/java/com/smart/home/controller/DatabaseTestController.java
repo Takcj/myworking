@@ -16,7 +16,7 @@ import java.util.Map;
  * @author lingma
  */
 @RestController
-@RequestMapping("/api/database")
+@RequestMapping("/api/v1/database")
 public class DatabaseTestController {
 
     @Autowired
