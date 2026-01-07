@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.smart.home.mapper.DeviceMapper">
+    <!-- 设备表字段映射 -->
+    <resultMap id="BaseResultMap" type="com.smart.home.model.entity.Device">
+        <id column="id" property="id" />
+        <result column="user_id" property="userId" />
+        <result column="area_id" property="areaId" />
+        <result column="device_id" property="deviceId" />
+        <result column="device_type" property="deviceType" />
+        <result column="device_name" property="deviceName" />
+        <result column="status_name" property="statusName" />
+        <result column="created_at" property="createdAt" />
+        <result column="updated_at" property="updatedAt" />
+    </resultMap>
+
+    <!-- 基础字段列表 -->
+    <sql id="BaseColumns">
+        id, user_id, area_id, device_id, device_type, device_name, status_name, created_at, updated_at
+    </sql>
+
+    <!-- 根据用户ID查询设备列表 -->
+    <select id="selectByUserId" parameterType="java.lang.Long" resultMap="BaseResultMap">
+        SELECT
+        <include refid="BaseColumns" />
+        FROM devices
+        WHERE user_id = #{userId}
+    </select>
+
+    <!-- 根据设备ID查询设备 -->
+    <select id="selectByDeviceId" parameterType="java.lang.String" resultMap="BaseResultMap">
+        SELECT
+        <include refid="BaseColumns" />
+        FROM devices
+        WHERE device_id = #{deviceId}
+    </select>
+
+    <!-- 根据用户ID和区域ID查询设备列表 -->
+    <select id="selectByUserIdAndAreaId" parameterType="map" resultMap="BaseResultMap">
+        SELECT
+        <include refid="BaseColumns" />
+        FROM devices
+        WHERE user_id = #{userId} AND area_id = #{areaId}
+    </select>
+</mapper>

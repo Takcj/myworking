@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.smart.home.mapper.UserMapper">
+    <!-- 用户表字段映射 -->
+    <resultMap id="BaseResultMap" type="com.smart.home.model.entity.User">
+        <id column="id" property="id" />
+        <result column="username" property="username" />
+        <result column="password" property="password" />
+        <result column="phone" property="phone" />
+        <result column="created_at" property="createdAt" />
+        <result column="last_login_at" property="lastLoginAt" />
+    </resultMap>
+
+    <!-- 基础字段列表 -->
+    <sql id="BaseColumns">
+        id, username, password, phone, created_at, last_login_at
+    </sql>
+
+    <!-- 根据手机号查询用户 -->
+    <select id="selectByPhone" parameterType="java.lang.String" resultMap="BaseResultMap">
+        SELECT
+        <include refid="BaseColumns" />
+        FROM users
+        WHERE phone = #{phone}
+    </select>
+
+    <!-- 更新用户最后登录时间 -->
+    <update id="updateLastLoginTime" parameterType="java.lang.Long">
+        UPDATE users
+        SET last_login_at = NOW()
+        WHERE id = #{userId}
+    </update>
+</mapper>

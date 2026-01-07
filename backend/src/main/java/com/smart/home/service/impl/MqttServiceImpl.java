@@ -233,6 +233,9 @@ public class MqttServiceImpl implements MqttService {
             
             logger.info("处理设备数据消息，设备ID: {}，设备类型: {}，状态: {}", deviceId, deviceType, status);
             
+            // 检查设备是否存在
+            // TODO: 实现设备验证逻辑
+            
             // 更新设备状态
             // TODO: 实现更新设备状态的逻辑
             
@@ -271,11 +274,14 @@ public class MqttServiceImpl implements MqttService {
     private void handleConnectionMessage(DeviceDataDTO deviceDataDTO) {
         try {
             String deviceId = deviceDataDTO.getData().getDeviceId();
+            String userId = deviceDataDTO.getUserId();
             
-            logger.info("处理连接消息，设备ID: {}", deviceId);
+            logger.info("处理连接消息，用户ID: {}，设备ID: {}", userId, deviceId);
             
-            // 记录连接状态
-            connectionService.setDeviceOnline(deviceDataDTO.getUserId(), deviceId);
+            // 记录连接状态为在线
+            connectionService.setDeviceOnline(userId, deviceId);
+            
+            logger.info("设备 {} 已设置为在线状态", deviceId);
         } catch (Exception e) {
             logger.error("处理连接消息时出错", e);
         }
@@ -287,11 +293,17 @@ public class MqttServiceImpl implements MqttService {
     private void handleHeartbeatMessage(DeviceDataDTO deviceDataDTO) {
         try {
             String deviceId = deviceDataDTO.getData().getDeviceId();
+            String userId = deviceDataDTO.getUserId();
             
-            logger.info("处理心跳消息，设备ID: {}", deviceId);
+            logger.info("处理心跳消息，用户ID: {}，设备ID: {}", userId, deviceId);
             
             // 更新心跳时间
             connectionService.updateHeartbeat(deviceId);
+            
+            // 确保设备状态为在线
+            connectionService.setDeviceOnline(userId, deviceId);
+            
+            logger.debug("设备 {} 心跳时间已更新", deviceId);
         } catch (Exception e) {
             logger.error("处理心跳消息时出错", e);
         }
@@ -307,6 +319,11 @@ public class MqttServiceImpl implements MqttService {
         try {
             String userId = deviceDataDTO.getUserId();
             String deviceId = deviceDataDTO.getData().getDeviceId();
+            
+            // 检查设备是否在线
+            if (!connectionService.isDeviceOnline(deviceId)) {
+                logger.warn("设备 {} 不在线，控制命令可能无法送达", deviceId);
+            }
             
             // 构建控制命令主题
             String topic = String.format(Constants.MQTT.USER_CONTROL_TOPIC, userId);

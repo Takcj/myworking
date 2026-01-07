@@ -1,6 +1,7 @@
 package com.smart.home.service;
 
 import com.smart.home.model.entity.Device;
+
 import java.util.List;
 
 /**
@@ -65,4 +66,12 @@ public interface DeviceService {
      * @return 设备列表
      */
     List<Device> getDevicesByUserIdAndAreaId(Long userId, Long areaId);
+
+    /**
+     * 获取用户设备及其在线状态
+     *
+     * @param userId 用户ID
+     * @return 设备列表（包含在线状态）
+     */
+    List<Device> getDevicesWithStatusByUserId(Long userId);
 }

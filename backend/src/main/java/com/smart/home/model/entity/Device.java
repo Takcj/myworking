@@ -62,4 +62,9 @@ public class Device {
      */
     private LocalDateTime updatedAt;
 
+    /**
+     * 在线状态（true: 在线, false: 离线）
+     * 用于表示设备当前是否在线
+     */
+    private Boolean onlineStatus;
 }

@@ -3,6 +3,9 @@ package com.smart.home.mapper;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.smart.home.model.entity.AutomationRule;
 import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
+
+import java.util.List;
 
 /**
  * 自动化规则Mapper接口
@@ -11,6 +14,18 @@ import org.apache.ibatis.annotations.Mapper;
  */
 @Mapper
 public interface AutomationRuleMapper extends BaseMapper<AutomationRule> {
-    // 继承BaseMapper后，已自动包含基本的CRUD方法
-    // 如需特殊查询方法，可在此处添加
+    /**
+     * 根据用户ID查询启用的规则列表
+     *
+     * @param userId 用户ID
+     * @return 启用的规则列表
+     */
+    List<AutomationRule> selectEnabledRulesByUserId(@Param("userId") Long userId);
+
+    /**
+     * 更新规则启用状态
+     *
+     * @param params 包含id和status的参数
+     */
+    void updateRuleStatus(@Param("id") Long id, @Param("status") int status);
 }

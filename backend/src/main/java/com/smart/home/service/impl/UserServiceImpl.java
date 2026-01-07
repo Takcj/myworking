@@ -29,12 +29,22 @@ public class UserServiceImpl implements UserService {
      */
     @Override
     public User register(String username, String phone, String password) {
-        // TODO: 实现用户注册的逻辑
-        // 1. 检查用户名或手机号是否已存在
-        // 2. 对密码进行加密
-        // 3. 保存用户信息
-        // 4. 返回用户实体
-        return null;
+        // 检查手机号是否已存在
+        User existingUser = userMapper.selectByPhone(phone);
+        if (existingUser != null) {
+            throw new RuntimeException("该手机号已被注册");
+        }
+
+        // 创建新用户
+        User user = new User();
+        user.setUsername(username);
+        user.setPhone(phone);
+        // 加密密码
+        user.setPassword(DigestUtils.md5DigestAsHex(password.getBytes()));
+
+        // 保存用户信息
+        userMapper.insert(user);
+        return user;
     }
 
     /**
@@ -45,11 +55,27 @@ public class UserServiceImpl implements UserService {
      */
     @Override
     public User login(LoginRequest loginRequest) {
-        // TODO: 实现用户登录的逻辑
-        // 1. 根据用户名或手机号获取用户
-        // 2. 验证密码
-        // 3. 更新最后登录时间
-        // 4. 返回用户实体
+        User user;
+        if (loginRequest.getPhone() != null) {
+            // 使用手机号登录
+            user = userMapper.selectByPhone(loginRequest.getPhone());
+        } else {
+            // 使用用户名登录
+            user = userMapper.selectOne(
+                com.baomidou.mybatisplus.core.conditions.query.QueryWrapper.<User>new().eq("username", loginRequest.getUsername())
+            );
+        }
+
+        if (user != null) {
+            // 验证密码
+            String encryptedPassword = DigestUtils.md5DigestAsHex(loginRequest.getPassword().getBytes());
+            if (encryptedPassword.equals(user.getPassword())) {
+                // 更新最后登录时间
+                updateLastLoginTime(user.getId());
+                return user;
+            }
+        }
+
         return null;
     }
 
@@ -61,8 +87,7 @@ public class UserServiceImpl implements UserService {
      */
     @Override
     public User getUserById(Long id) {
-        // TODO: 实现根据ID获取用户的逻辑
-        return null;
+        return userMapper.selectById(id);
     }
 
     /**
@@ -73,8 +98,7 @@ public class UserServiceImpl implements UserService {
      */
     @Override
     public User getUserByPhone(String phone) {
-        // TODO: 实现根据手机号获取用户的逻辑
-        return null;
+        return userMapper.selectByPhone(phone);
     }
 
     /**
@@ -84,6 +108,6 @@ public class UserServiceImpl implements UserService {
      */
     @Override
     public void updateLastLoginTime(Long userId) {
-        // TODO: 实现更新用户最后登录时间的逻辑
+        userMapper.updateLastLoginTime(userId);
     }
 }

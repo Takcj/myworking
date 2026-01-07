@@ -3,10 +3,13 @@ package com.smart.home.service.impl;
 import com.smart.home.model.entity.Device;
 import com.smart.home.service.DeviceService;
 import com.smart.home.mapper.DeviceMapper;
+import com.smart.home.service.ConnectionService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * 设备服务实现类
@@ -19,6 +22,9 @@ public class DeviceServiceImpl implements DeviceService {
     @Autowired
     private DeviceMapper deviceMapper;
 
+    @Autowired
+    private ConnectionService connectionService;
+
     /**
      * 根据用户ID获取设备列表
      *
@@ -27,8 +33,9 @@ public class DeviceServiceImpl implements DeviceService {
      */
     @Override
     public List<Device> getDevicesByUserId(Long userId) {
-        // TODO: 实现根据用户ID获取设备列表的逻辑
-        return null;
+        List<Device> devices = deviceMapper.selectByUserId(userId);
+        // 可以在这里为每个设备添加连接状态信息
+        return devices;
     }
 
     /**
@@ -39,8 +46,7 @@ public class DeviceServiceImpl implements DeviceService {
      */
     @Override
     public Device getDeviceById(Long id) {
-        // TODO: 实现根据ID获取设备的逻辑
-        return null;
+        return deviceMapper.selectById(id);
     }
 
     /**
@@ -51,8 +57,7 @@ public class DeviceServiceImpl implements DeviceService {
      */
     @Override
     public Device getDeviceByDeviceId(String deviceId) {
-        // TODO: 实现根据设备ID获取设备的逻辑
-        return null;
+        return deviceMapper.selectByDeviceId(deviceId);
     }
 
     /**
@@ -63,8 +68,10 @@ public class DeviceServiceImpl implements DeviceService {
      */
     @Override
     public Device addDevice(Device device) {
-        // TODO: 实现添加设备的逻辑
-        return null;
+        device.setCreatedAt(LocalDateTime.now());
+        device.setUpdatedAt(LocalDateTime.now());
+        deviceMapper.insert(device);
+        return device;
     }
 
     /**
@@ -75,8 +82,9 @@ public class DeviceServiceImpl implements DeviceService {
      */
     @Override
     public Device updateDevice(Device device) {
-        // TODO: 实现更新设备的逻辑
-        return null;
+        device.setUpdatedAt(LocalDateTime.now());
+        deviceMapper.updateById(device);
+        return device;
     }
 
     /**
@@ -86,7 +94,7 @@ public class DeviceServiceImpl implements DeviceService {
      */
     @Override
     public void deleteDevice(Long id) {
-        // TODO: 实现删除设备的逻辑
+        deviceMapper.deleteById(id);
     }
 
     /**
@@ -98,7 +106,25 @@ public class DeviceServiceImpl implements DeviceService {
      */
     @Override
     public List<Device> getDevicesByUserIdAndAreaId(Long userId, Long areaId) {
-        // TODO: 实现根据用户ID和区域ID获取设备列表的逻辑
-        return null;
+        return deviceMapper.selectByUserIdAndAreaId(userId, areaId);
+    }
+
+    /**
+     * 获取用户设备及其在线状态
+     *
+     * @param userId 用户ID
+     * @return 设备列表（包含在线状态）
+     */
+    @Override
+    public List<Device> getDevicesWithStatusByUserId(Long userId) {
+        List<Device> devices = getDevicesByUserId(userId);
+        return devices.stream()
+                .map(device -> {
+                    // 为设备添加在线状态
+                    Boolean isOnline = connectionService.isDeviceOnline(device.getDeviceId());
+                    device.setOnlineStatus(isOnline);
+                    return device;
+                })
+                .collect(Collectors.toList());
     }
 }

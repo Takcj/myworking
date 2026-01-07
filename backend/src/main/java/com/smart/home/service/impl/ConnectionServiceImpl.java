@@ -29,17 +29,40 @@ public class ConnectionServiceImpl implements ConnectionService {
      */
     @Override
     public ConnectionStatus recordConnectionStatus(String userId, String deviceId, String connectionStatus) {
-        ConnectionStatus status = new ConnectionStatus();
-        status.setUserId(userId);
-        status.setDeviceId(deviceId);
-        status.setConnectionStatus(connectionStatus);
-        status.setConnectionTime(connectionStatus.equals("connected") ? LocalDateTime.now() : null);
-        status.setDisconnectionTime(connectionStatus.equals("disconnected") ? LocalDateTime.now() : null);
-        status.setCreatedAt(LocalDateTime.now());
-        status.setUpdatedAt(LocalDateTime.now());
+        // 先尝试获取现有的连接状态记录
+        ConnectionStatus existingStatus = connectionStatusMapper.selectByDeviceId(deviceId);
+        
+        ConnectionStatus status;
+        if (existingStatus != null) {
+            // 更新现有记录
+            existingStatus.setUserId(userId);
+            existingStatus.setConnectionStatus(connectionStatus);
+            if ("connected".equals(connectionStatus)) {
+                existingStatus.setConnectionTime(LocalDateTime.now());
+            } else if ("disconnected".equals(connectionStatus)) {
+                existingStatus.setDisconnectionTime(LocalDateTime.now());
+            }
+            existingStatus.setUpdatedAt(LocalDateTime.now());
+            
+            connectionStatusMapper.updateById(existingStatus);
+            status = existingStatus;
+        } else {
+            // 创建新记录
+            status = new ConnectionStatus();
+            status.setUserId(userId);
+            status.setDeviceId(deviceId);
+            status.setConnectionStatus(connectionStatus);
+            if ("connected".equals(connectionStatus)) {
+                status.setConnectionTime(LocalDateTime.now());
+            } else if ("disconnected".equals(connectionStatus)) {
+                status.setDisconnectionTime(LocalDateTime.now());
+            }
+            status.setCreatedAt(LocalDateTime.now());
+            status.setUpdatedAt(LocalDateTime.now());
 
-        // 保存到数据库
-        // TODO: 实现数据库保存逻辑
+            connectionStatusMapper.insert(status);
+        }
+
         return status;
     }
 
@@ -50,8 +73,7 @@ public class ConnectionServiceImpl implements ConnectionService {
      */
     @Override
     public void updateHeartbeat(String deviceId) {
-        // TODO: 实现更新心跳时间的逻辑
-        // 从数据库获取当前连接状态记录并更新最后心跳时间
+        connectionStatusMapper.updateHeartbeat(deviceId);
     }
 
     /**
@@ -62,8 +84,7 @@ public class ConnectionServiceImpl implements ConnectionService {
      */
     @Override
     public ConnectionStatus getConnectionStatus(String deviceId) {
-        // TODO: 实现从数据库获取连接状态的逻辑
-        return null;
+        return connectionStatusMapper.selectByDeviceId(deviceId);
     }
 
     /**
@@ -74,8 +95,16 @@ public class ConnectionServiceImpl implements ConnectionService {
      */
     @Override
     public void setDeviceOnline(String userId, String deviceId) {
-        // 记录连接状态为在线
-        recordConnectionStatus(userId, deviceId, "connected");
+        // 先尝试获取现有的连接状态记录
+        ConnectionStatus existingStatus = connectionStatusMapper.selectByDeviceId(deviceId);
+        
+        if (existingStatus != null) {
+            // 更新现有记录
+            connectionStatusMapper.setDeviceOnline(userId, deviceId);
+        } else {
+            // 创建新记录
+            recordConnectionStatus(userId, deviceId, "connected");
+        }
     }
 
     /**
@@ -85,8 +114,7 @@ public class ConnectionServiceImpl implements ConnectionService {
      */
     @Override
     public void setDeviceOffline(String deviceId) {
-        // 记录连接状态为离线
-        // TODO: 需要获取userId才能记录连接状态
+        connectionStatusMapper.setDeviceOffline(deviceId);
     }
 
     /**
@@ -97,8 +125,29 @@ public class ConnectionServiceImpl implements ConnectionService {
      */
     @Override
     public boolean isDeviceOnline(String deviceId) {
-        // TODO: 实现检查设备是否在线的逻辑
-        // 从数据库获取连接状态并判断是否在线
+        ConnectionStatus status = getConnectionStatus(deviceId);
+        if (status == null) {
+            return false;
+        }
+        
+        // 判断连接状态是否为connected，且没有超过心跳超时时间
+        // 假设心跳超时时间为5分钟
+        if ("connected".equals(status.getConnectionStatus())) {
+            if (status.getLastHeartbeat() != null) {
+                // 检查最后心跳时间是否在5分钟内
+                long currentTime = System.currentTimeMillis();
+                long lastHeartbeatTime = status.getLastHeartbeat().atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli();
+                long timeout = 5 * 60 * 1000; // 5分钟超时
+                return (currentTime - lastHeartbeatTime) < timeout;
+            } else {
+                // 如果没有心跳记录，只检查连接时间
+                long connectionTime = status.getConnectionTime().atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli();
+                long currentTime = System.currentTimeMillis();
+                long timeout = 5 * 60 * 1000; // 5分钟超时
+                return (currentTime - connectionTime) < timeout;
+            }
+        }
+        
         return false;
     }
 }

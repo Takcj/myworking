@@ -34,6 +34,18 @@ public class DeviceController {
     }
 
     /**
+     * 获取用户所有设备及其在线状态
+     *
+     * @param userId 用户ID
+     * @return 设备列表（包含在线状态）
+     */
+    @GetMapping("/with-status")
+    public Result<List<Device>> getUserDevicesWithStatus(@RequestParam Long userId) {
+        List<Device> devices = deviceService.getDevicesWithStatusByUserId(userId);
+        return Result.success("获取设备及在线状态成功", devices);
+    }
+
+    /**
      * 获取特定设备信息
      *
      * @param id 设备ID

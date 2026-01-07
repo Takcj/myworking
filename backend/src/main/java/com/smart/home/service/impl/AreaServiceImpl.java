@@ -6,6 +6,7 @@ import com.smart.home.mapper.AreaMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 /**
@@ -27,8 +28,7 @@ public class AreaServiceImpl implements AreaService {
      */
     @Override
     public List<Area> getAreasByUserId(Long userId) {
-        // TODO: 实现根据用户ID获取区域列表的逻辑
-        return null;
+        return areaMapper.selectByUserId(userId);
     }
 
     /**
@@ -39,8 +39,7 @@ public class AreaServiceImpl implements AreaService {
      */
     @Override
     public Area getAreaById(Long id) {
-        // TODO: 实现根据ID获取区域的逻辑
-        return null;
+        return areaMapper.selectById(id);
     }
 
     /**
@@ -51,8 +50,10 @@ public class AreaServiceImpl implements AreaService {
      */
     @Override
     public Area addArea(Area area) {
-        // TODO: 实现添加区域的逻辑
-        return null;
+        area.setCreatedAt(LocalDateTime.now());
+        area.setUpdatedAt(LocalDateTime.now());
+        areaMapper.insert(area);
+        return area;
     }
 
     /**
@@ -63,8 +64,9 @@ public class AreaServiceImpl implements AreaService {
      */
     @Override
     public Area updateArea(Area area) {
-        // TODO: 实现更新区域的逻辑
-        return null;
+        area.setUpdatedAt(LocalDateTime.now());
+        areaMapper.updateById(area);
+        return area;
     }
 
     /**
@@ -74,7 +76,7 @@ public class AreaServiceImpl implements AreaService {
      */
     @Override
     public void deleteArea(Long id) {
-        // TODO: 实现删除区域的逻辑
+        areaMapper.deleteById(id);
     }
 
     /**
@@ -86,7 +88,6 @@ public class AreaServiceImpl implements AreaService {
      */
     @Override
     public Area getAreaByUserIdAndName(Long userId, String areaName) {
-        // TODO: 实现根据用户ID和区域名称获取区域的逻辑
-        return null;
+        return areaMapper.selectByUserIdAndName(userId, areaName);
     }
 }
