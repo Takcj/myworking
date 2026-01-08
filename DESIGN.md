@@ -93,7 +93,7 @@
 ## 技术栈
 
 ### 云端层
-- **后端框架**：Spring Boot
+- **后端框架**：Spring Boot 3.x+
 - **数据库**：MySQL + Redis
 - **消息协议**：MQTT
 - **实时通信**：WebSocket
