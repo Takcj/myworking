@@ -1,0 +1,69 @@
+{
+  "properties": [
+    {
+      "name": "app.jwt.secret",
+      "type": "java.lang.String",
+      "description": "JWT密钥，用于生成和验证令牌"
+    },
+    {
+      "name": "app.jwt.expiration",
+      "type": "java.lang.Long",
+      "description": "JWT过期时间，单位毫秒"
+    },
+    {
+      "name": "app.mqtt.username",
+      "type": "java.lang.String",
+      "description": "MQTT服务器用户名"
+    },
+    {
+      "name": "app.mqtt.password",
+      "type": "java.lang.String",
+      "description": "MQTT服务器密码"
+    },
+    {
+      "name": "app.mqtt.url",
+      "type": "java.lang.String",
+      "description": "MQTT服务器连接地址"
+    },
+    {
+      "name": "app.mqtt.client-id",
+      "type": "java.lang.String",
+      "description": "MQTT客户端ID"
+    },
+    {
+      "name": "app.mqtt.default-topic",
+      "type": "java.lang.String",
+      "description": "MQTT默认主题"
+    },
+    {
+      "name": "app.mqtt.time-out",
+      "type": "java.lang.Integer",
+      "description": "MQTT连接超时时间"
+    },
+    {
+      "name": "app.mqtt.keep-alive",
+      "type": "java.lang.Integer",
+      "description": "MQTT心跳间隔时间"
+    },
+    {
+      "name": "mybatis-plus.configuration.map-underscore-to-camel-case",
+      "type": "java.lang.Boolean",
+      "description": "开启驼峰命名自动映射"
+    },
+    {
+      "name": "mybatis-plus.global-config.db-config.logic-delete-field",
+      "type": "java.lang.String",
+      "description": "逻辑删除字段名"
+    },
+    {
+      "name": "mybatis-plus.global-config.db-config.logic-delete-value",
+      "type": "java.lang.Object",
+      "description": "逻辑删除值"
+    },
+    {
+      "name": "mybatis-plus.global-config.db-config.not-delete-value",
+      "type": "java.lang.Object",
+      "description": "非逻辑删除值"
+    }
+  ]
+}
