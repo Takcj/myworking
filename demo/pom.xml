@@ -85,6 +85,21 @@
 			<groupId>org.springframework.integration</groupId>
 			<artifactId>spring-integration-mqtt</artifactId>
 		</dependency>
+		
+		<!-- 添加Spring Integration Core及DSL支持 -->
+		<dependency>
+			<groupId>org.springframework.integration</groupId>
+			<artifactId>spring-integration-core</artifactId>
+		</dependency>
+		
+		<!-- Spring Integration DSL support is included in spring-integration-core since version 5.x -->
+		
+		<!-- 添加Eclipse Paho MQTT客户端依赖 -->
+		<dependency>
+			<groupId>org.eclipse.paho</groupId>
+			<artifactId>org.eclipse.paho.client.mqttv3</artifactId>
+			<version>1.2.5</version>
+		</dependency>
 
 		<!-- 添加JWT支持 -->
 		<dependency>

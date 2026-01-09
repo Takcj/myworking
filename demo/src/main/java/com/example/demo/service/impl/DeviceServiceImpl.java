@@ -49,4 +49,15 @@ public class DeviceServiceImpl implements DeviceService {
     public void deleteDevice(Long id) {
         deviceRepository.deleteById(id);
     }
+
+    @Override
+    public void updateDeviceStatus(String deviceId, String deviceData) {
+        Optional<Device> deviceOpt = deviceRepository.findById(Long.parseLong(deviceId));
+        if (deviceOpt.isPresent()) {
+            Device device = deviceOpt.get();
+            // 假设我们将设备状态数据存储在某个字段中
+            device.setStatusName(deviceData);
+            deviceRepository.save(device);
+        }
+    }
 }
